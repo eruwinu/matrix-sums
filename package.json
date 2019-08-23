@@ -1,0 +1,22 @@
+{
+  "name": "matrix-sums",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --max-old-space-size=8192 ./out/index.js ./matrix.txt ./output.txt 2>/dev/null"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "baconjs": "^3.0.10",
+    "ramda": "^0.26.1",
+    "typescript": "^3.5.3"
+  },
+  "devDependencies": {
+    "@types/baconjs": "^0.7.33",
+    "@types/node": "^12.7.2",
+    "@types/ramda": "^0.26.19"
+  }
+}
