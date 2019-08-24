@@ -83,8 +83,7 @@ unlink(OUTPUT_FILE)
                             return appendMatrixToFile(GROUP_OUTPUT_FILE, matrix);
                         });
                     })
-                    .map(R.always({ size: sqMatrixSize, file: GROUP_OUTPUT_FILE }))
-                    .toEventStream();
+                    .map(R.always({ size: sqMatrixSize, file: GROUP_OUTPUT_FILE }));
             })
             .flatMap<OutFile>(R.identity)
             .fold<OutFile[]>([], (files, file) =>
