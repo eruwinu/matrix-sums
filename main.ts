@@ -8,8 +8,8 @@ import * as Bacon from 'baconjs';
 import * as R from 'ramda';
 
 import {
-    Matrix, toArrayBuffer, copyToSubMatrix,
-    readMatrixFromFile, appendMatrixToFile, printMatrix
+    Matrix, MatrixArrayBuffer, toMatrix,
+    appendMatrixToFile, printMatrix
 } from './index';
 
 const numWorkers = R.length(cpus());
@@ -18,42 +18,35 @@ let workerIndex = 0;
 
 const INPUT_FILE = process.argv[2];
 
-const balancedSubMatrices = Bacon.fromPromise(readMatrixFromFile(INPUT_FILE))
-    .flatMapError<Matrix>(_ => {
-        console.log("Error opening input file:", INPUT_FILE);
-        return Bacon.never();
-    })
-    .flatMap<Matrix>(matrix => Bacon.fromBinder(sink => {
-        const [m, n] = [R.length(matrix), R.length(R.head(matrix))];
-        let squareSubMatrixSize = 2;
-        let pivot = { row: 0, col: 0 };
-        while (squareSubMatrixSize < R.min(m, n)) {
-            while (pivot.row <= m - squareSubMatrixSize) {
-                while (pivot.col <= n - squareSubMatrixSize) {
-                    sink(copyToSubMatrix(matrix, squareSubMatrixSize, pivot));
-                    pivot.col++;
-                }
-                pivot.row++;
-                pivot.col = 0;
-            }
-            squareSubMatrixSize++;
-            pivot.row = 0;
-        }
-        sink(new Bacon.End());
-        return () => { };
-    }))
-    .flatMapWithConcurrencyLimit(numWorkers, matrix => {
+const producer = new Worker(__dirname + "/producer.js");
+const producerChannel = new MessageChannel();
+
+interface MessageValue {
+    buffer: MatrixArrayBuffer;
+    m: number;
+    n: number;
+};
+
+const subMatrices = Bacon.fromBinder<MessageValue>(sink => {
+    producerChannel.port2.on("message", value => sink(value));
+    return () => producerChannel.port2.close();
+});
+producer.postMessage({
+    inputFile: INPUT_FILE,
+    port: producerChannel.port1
+}, [producerChannel.port1]);
+
+const balancedSubMatrices = subMatrices
+    .flatMapWithConcurrencyLimit(numWorkers, ({buffer, m, n}) => {
+        const matrix = toMatrix(buffer, m, n);
         workerIndex++;
-        const arrBuf = toArrayBuffer(matrix);
         return Bacon.fromPromise<boolean>(new Promise((resolve) => {
             const subChannel = new MessageChannel();
             subChannel.port2.once("message", resolve);
-            workers[workerIndex % numWorkers].postMessage({
-                buffer: arrBuf,
-                m: R.length(matrix),
-                n: R.length(R.head(matrix)),
-                port: subChannel.port1
-            }, [arrBuf.buffer, subChannel.port1]);
+            workers[workerIndex % numWorkers].postMessage(
+                R.assoc("port", subChannel.port1, { buffer, m, n }),
+                [buffer.buffer, subChannel.port1]
+            );
         }))
             .flatMap<Matrix>(isBalanced => isBalanced ? matrix : Bacon.never());
     });
