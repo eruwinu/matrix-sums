@@ -28,7 +28,8 @@ interface MessageValue {
 };
 
 const subMatrices = Bacon.fromBinder<MessageValue>(sink => {
-    producerChannel.port2.on("message", value => sink(value));
+    producerChannel.port2.on("message", sink);
+    producerChannel.port2.on("close", () => sink(new Bacon.End()));
     return () => producerChannel.port2.close();
 });
 producer.postMessage({
