@@ -32,6 +32,7 @@ const subMatrices = Bacon.fromBinder<MessageValue>(sink => {
     producerChannel.port2.on("close", () => sink(new Bacon.End()));
     return () => producerChannel.port2.close();
 });
+subMatrices.onEnd(() => producer.terminate());
 producer.postMessage({
     inputFile: INPUT_FILE,
     port: producerChannel.port1
